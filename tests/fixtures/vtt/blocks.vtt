@@ -1,0 +1,20 @@
+WEBVTT - with header text
+Kind: captions
+
+NOTE This is a comment
+spanning two lines
+
+STYLE
+::cue { color: yellow; }
+
+REGION
+id:fred width:40%
+
+intro
+00:00:01.000 --> 00:00:02.000
+Cue with an identifier.
+
+NOTE
+
+00:00:02.000 --> 00:00:03.000
+Cue without one.

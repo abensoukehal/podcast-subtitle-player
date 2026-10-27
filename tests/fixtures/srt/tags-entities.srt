@@ -1,0 +1,8 @@
+1
+00:00:01,000 --> 00:00:03,000
+{\an8}<i>Rock &amp; roll</i> is
+<font color="#ffffff">&quot;not&quot; dead</font>&nbsp;&lt;yet&gt;
+
+2
+00:00:03,000 --> 00:00:04,000
+It&#39;s <b>fine</b>.

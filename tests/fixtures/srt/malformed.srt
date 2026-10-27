@@ -1,0 +1,15 @@
+1
+00:00:01,000 --> 00:00:02,000
+Good one.
+
+2
+not a timing line
+Broken text.
+
+3
+00:00:xx,000 --> 00:00:04,000
+Bad timestamp.
+
+4
+00:00:05,000 --> 00:00:06,000
+Good two.

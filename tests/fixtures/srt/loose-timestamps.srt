@@ -1,0 +1,7 @@
+1
+0:00:01.5 --> 0:00:02.75
+Dot separator, one-digit hour.
+
+2
+1:02:03,05 --> 1:02:04,123 X1:40 X2:600 Y1:20 Y2:50
+Two-digit fraction and trailing coordinates.
