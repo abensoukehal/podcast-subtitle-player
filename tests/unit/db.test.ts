@@ -11,7 +11,10 @@ import {
   sortEpisodes,
   updateEpisode,
 } from '../../src/lib/db/episodes';
+import { addBookmark, deleteBookmark, listBookmarks } from '../../src/lib/db/bookmarks';
 import { getDb, type Episode } from '../../src/lib/db/schema';
+import { DEFAULT_SETTINGS, getSettings, saveSettings } from '../../src/lib/db/settings';
+import { addVocab } from '../../src/lib/db/vocabulary';
 import type { Cue } from '../../src/lib/subtitles/types';
 
 const cues = (n: number): Cue[] =>
@@ -140,5 +143,35 @@ describe('sortEpisodes (LIB-5)', () => {
       episode('played-late', { createdAt: 2, lastPlayedAt: 20 }),
     ]);
     expect(sorted.map((e) => e.id)).toEqual(['played-late', 'played-early', 'new-new', 'old-new']);
+  });
+});
+
+describe('vocabulary, bookmarks, settings', () => {
+  const word = {
+    word: 'shadowing',
+    sentence: 'This is called shadowing.',
+    episodeId: 'e',
+    episodeTitle: 'E',
+    cueIndex: 3,
+    timeSec: 9,
+  };
+
+  it('saves a word once per sentence (STO-4)', async () => {
+    expect(await addVocab(word)).toBe('saved');
+    expect(await addVocab(word)).toBe('exists');
+    expect(await addVocab({ ...word, sentence: 'Shadowing helps.' })).toBe('saved');
+  });
+
+  it('adds, lists and deletes bookmarks', async () => {
+    const b = await addBookmark({ episodeId: 'bm', cueIndex: 2, text: 's2', startSec: 2 });
+    expect((await listBookmarks('bm')).map((x) => x.cueIndex)).toEqual([2]);
+    await deleteBookmark(b.id);
+    expect(await listBookmarks('bm')).toEqual([]);
+  });
+
+  it('returns defaults until settings are saved', async () => {
+    expect(await getSettings()).toEqual(DEFAULT_SETTINGS);
+    await saveSettings({ ...DEFAULT_SETTINGS, skipSec: 10 });
+    expect((await getSettings()).skipSec).toBe(10);
   });
 });

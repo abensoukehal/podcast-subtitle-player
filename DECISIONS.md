@@ -49,3 +49,21 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **E2E fixtures.** The 20-second WAV and its SRT are generated in memory in `tests/e2e/fixtures.ts` and passed to the file input as buffers; no file is written.
 - **TST-6 backup round trip.** Backup (STO-6) is in M5, so its round-trip test comes with it.
 - **Navigation bar.** UI-1 (tab bar / top bar) is in M6; M3 has only the library and player routes.
+
+## M4
+
+- **Settings storage now.** Visibility, reveal-after-listening, auto-pause, default speed and skip seconds are `Settings` fields, so `src/lib/db/settings.ts` and a settings store were added now; M5 adds the Settings screen. PLY-3's "new default" is now saved, and skipSec is read from settings.
+- **Engine events.** Besides `cueend` (M2), the engine emits `loopchange` and `wait` (why it paused: manual, timed with its length, or the loop gap) so the UI can show the loop chip, the "Continue" label and the countdown ring.
+- **Play during a wait.** Play during a timed auto-pause or a loop gap continues at once; Pause, seek or picking a sentence cancels the wait.
+- **LRN-3 timed length.** The pause is the sentence's length in the audio times the factor, regardless of playback speed.
+- **LRN-4 loop follows the user.** With a sentence loop on, choosing another sentence (tap, previous, next, Replay) moves the loop there and restarts its count. The loop chip offers Off, 2, 3, 5 times and Until stopped.
+- **LRN-5 A-B loop.** Jumps back with no gap and no auto-pause at the end of the range. "Loop to here" with no start set loops that one sentence; the two ends may be set in any order. Choosing a sentence loop clears the A-B loop.
+- **LRN-6 after a slow replay.** The previous speed is restored at the end of the sentence and playback continues (auto-pause applies), the same as Replay.
+- **MOB-3 early.** The engine also checks cue ends on every `timeupdate`, which is what keeps loop and auto-pause working when animation frames stop in the background. There is no explicit visibility switch: both run, and a cue end still fires once. TST-5 covers it.
+- **LRN-1 Hidden mode.** Rows show "Hidden sentence" in place of the text; tapping seeks. Revealing only applies in Blurred mode.
+- **LRN-2 toggle location.** "Reveal blurred sentences after listening" is in the player's overflow menu until the Settings screen exists.
+- **SEN sheet.** A native modal `<dialog>`: a bottom sheet under 768 px, a centered dialog above. Right-click also opens it on desktop. Replay, Replay slowly, Loop ×3 and the loop ends close the sheet; Bookmark, Copy and word actions keep it open.
+- **SEN-3 phrases.** Tapping a neighbour of the selection extends it; tapping elsewhere starts a new selection; tapping the only selected word clears it. Look up is offered for single words only, as the spec lists. Punctuation-only tokens are not tappable.
+- **SEN-4 link.** Look up is a real link (`target="_blank" rel="noopener noreferrer"`), not `window.open`.
+- **TRN-5 completed.** Rows now have the bookmark marker and the actions button.
+- **TRN-4 setting.** `Settings.autoScroll` off disables auto-scroll and the "Back to current" button.

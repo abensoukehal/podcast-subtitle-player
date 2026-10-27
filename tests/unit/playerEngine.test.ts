@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlayerEngine } from '../../src/player/PlayerEngine';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PlayerEngine, type LoopMode, type WaitState } from '../../src/player/PlayerEngine';
 import type { Cue } from '../../src/lib/subtitles/types';
 
 class FakeAudio extends EventTarget {
@@ -171,5 +171,150 @@ describe('PlayerEngine', () => {
     engine.on('statechange', (s) => states.push(s.playing));
     await engine.play();
     expect(states).toEqual([false]);
+  });
+});
+
+describe('learning tools (TST-5)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function setupWithModes() {
+    const s = await setup();
+    const waits: (WaitState | null)[] = [];
+    const loops: LoopMode[] = [];
+    s.engine.on('wait', (w) => waits.push(w));
+    s.engine.on('loopchange', (l) => loops.push(l));
+    return { ...s, waits, loops };
+  }
+
+  it('loop x3 plays the sentence exactly three times, with a 0.5 s gap, then plays on', async () => {
+    const { audio, engine, playTo, loops } = await setupWithModes();
+    engine.setLoop({ kind: 'cue', index: 1, times: 3 });
+    engine.seekToCue(1, { play: true });
+
+    playTo(3.98); // end of play 1
+    expect(audio.paused).toBe(true);
+    vi.advanceTimersByTime(499);
+    expect(audio.paused).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBeCloseTo(1.85);
+
+    playTo(2.5);
+    playTo(3.98); // end of play 2
+    vi.advanceTimersByTime(500);
+    expect(audio.currentTime).toBeCloseTo(1.85);
+
+    playTo(2.5);
+    playTo(3.98); // end of play 3: no more repeats
+    expect(audio.paused).toBe(false);
+    expect(loops.at(-1)).toEqual({ kind: 'off' });
+  });
+
+  it('Play during the loop gap repeats at once', async () => {
+    const { audio, engine, playTo } = await setupWithModes();
+    engine.setLoop({ kind: 'cue', index: 0, times: 'infinite' });
+    await engine.play();
+    playTo(1.98);
+    expect(audio.paused).toBe(true);
+    await engine.play();
+    expect(audio.paused).toBe(false);
+    expect(audio.currentTime).toBe(0);
+  });
+
+  it('a sentence loop follows the sentence the user picks', async () => {
+    const { engine, loops } = await setupWithModes();
+    engine.setLoop({ kind: 'cue', index: 0, times: 'infinite' });
+    engine.seekToCue(2);
+    expect(loops.at(-1)).toEqual({ kind: 'cue', index: 2, times: 'infinite' });
+  });
+
+  it('manual auto-pause stops at every sentence end and waits for Play', async () => {
+    const { audio, engine, playTo, waits, events } = await setupWithModes();
+    engine.setAutoPause({ kind: 'manual' });
+    await engine.play();
+    playTo(1.98);
+    expect(audio.paused).toBe(true);
+    vi.advanceTimersByTime(60_000);
+    expect(audio.paused).toBe(true);
+    await engine.play();
+    expect(audio.paused).toBe(false);
+    playTo(2.5);
+    playTo(3.98);
+    expect(audio.paused).toBe(true);
+    expect(events.cueend).toEqual([0, 1]);
+    expect(waits).toEqual([{ kind: 'manual' }, null, { kind: 'manual' }]);
+  });
+
+  it('timed auto-pause resumes after the sentence duration times the factor', async () => {
+    const { audio, engine, playTo, waits } = await setupWithModes();
+    engine.setAutoPause({ kind: 'timed', factor: 1.5 });
+    await engine.play();
+    playTo(1.98); // cue 0 lasts 2 s: wait 3 s
+    expect(waits).toEqual([{ kind: 'timed', ms: 3000 }]);
+    vi.advanceTimersByTime(2999);
+    expect(audio.paused).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(audio.paused).toBe(false);
+    expect(waits.at(-1)).toBe(null);
+  });
+
+  it('pausing during a timed wait cancels the resume', async () => {
+    const { audio, engine, playTo } = await setupWithModes();
+    engine.setAutoPause({ kind: 'timed', factor: 1 });
+    await engine.play();
+    playTo(1.98);
+    engine.pause();
+    vi.advanceTimersByTime(10_000);
+    expect(audio.paused).toBe(true);
+  });
+
+  it('auto-pause applies once after the last loop repeat', async () => {
+    const { engine, playTo, waits } = await setupWithModes();
+    engine.setAutoPause({ kind: 'manual' });
+    engine.setLoop({ kind: 'cue', index: 1, times: 2 });
+    engine.seekToCue(1, { play: true });
+    playTo(3.98);
+    expect(waits.at(-1)).toEqual({ kind: 'gap', ms: 500 });
+    vi.advanceTimersByTime(500);
+    playTo(2.5);
+    playTo(3.98);
+    expect(waits.at(-1)).toEqual({ kind: 'manual' });
+  });
+
+  it('an A-B loop jumps from the end of the last sentence to the first', async () => {
+    const { audio, engine, playTo } = await setupWithModes();
+    engine.setLoop({ kind: 'range', startSec: 2, endSec: 6 });
+    engine.seekToCue(1, { play: true });
+    playTo(3.98); // inside the range: plays on
+    expect(audio.currentTime).toBe(3.98);
+    playTo(5.98);
+    expect(audio.currentTime).toBeCloseTo(1.85);
+    expect(audio.paused).toBe(false);
+  });
+
+  it('replay slowly plays one sentence at 0.75x, then restores the speed', async () => {
+    const { audio, engine, playTo } = await setupWithModes();
+    engine.setRate(1.25);
+    engine.replayCueSlowly(1);
+    expect(audio.playbackRate).toBe(0.75);
+    expect(audio.paused).toBe(false);
+    playTo(2.5);
+    playTo(3.98);
+    expect(audio.playbackRate).toBe(1.25);
+  });
+
+  it('timeupdate drives cue ends when no frames run, as in the background (MOB-3)', async () => {
+    const { audio, engine, events } = await setupWithModes();
+    engine.setAutoPause({ kind: 'manual' });
+    await engine.play();
+    audio.currentTime = 1.98;
+    audio.dispatchEvent(new Event('timeupdate'));
+    expect(events.cueend).toEqual([0]);
+    expect(audio.paused).toBe(true);
   });
 });

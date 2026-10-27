@@ -44,8 +44,10 @@
 }
 
 .row {
+  display: flex;
   max-width: 760px;
   margin: 0 auto;
+  border-radius: var(--radius);
   content-visibility: auto;
   contain-intrinsic-size: auto 4em;
 }
@@ -54,7 +56,8 @@
   display: grid;
   grid-template-columns: 3.5em 1fr;
   gap: 8px;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
   padding: 8px 12px;
   border: 0;
@@ -69,9 +72,12 @@
   background: var(--hover);
 }
 
-.active .rowButton {
+.active {
   background: var(--highlight-bg);
   color: var(--highlight-text);
+}
+
+.active .rowButton {
   font-weight: 600;
 }
 
@@ -207,6 +213,7 @@
 }
 
 .playButton {
+  position: relative;
   display: grid;
   place-items: center;
   width: 56px;
@@ -233,5 +240,191 @@
 
 .actions {
   display: flex;
+  gap: 8px;
+}
+
+/* Learning tools */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.blurred {
+  filter: blur(6px);
+  user-select: none;
+}
+
+.hiddenText {
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.bookmarkMark {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.rowActions {
+  align-self: start;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.ring {
+  position: absolute;
+  inset: -7px;
+  width: calc(100% + 14px);
+  height: calc(100% + 14px);
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.ring circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: 100;
+  animation: countdown linear forwards;
+}
+
+@keyframes countdown {
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.checkbox input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.rangeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.chipClear {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Sentence sheet: a bottom sheet on phones, a centered dialog from 768 px. */
+
+.sheet {
+  width: 100%;
+  max-width: 100%;
+  max-height: 85dvh;
+  margin: auto 0 0;
+  padding: 8px 16px max(16px, env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.sheet::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+@media (min-width: 768px) {
+  .sheet {
+    width: 520px;
+    margin: auto;
+    padding: 12px 20px 20px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheetTitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 12px;
+  font-size: var(--font-size);
+  line-height: 1.6;
+}
+
+.word {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.wordSelected {
+  border-color: var(--accent);
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
+}
+
+.wordActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordActions a {
+  display: inline-grid;
+  place-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sheetMessage {
+  min-height: 1.5em;
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sheetActions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }

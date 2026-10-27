@@ -1,10 +1,18 @@
 import { create } from 'zustand';
+import { addBookmark, deleteBookmark, listBookmarks } from '../lib/db/bookmarks';
 import { getAudio, getEpisode, replaceAudio, updateEpisode } from '../lib/db/episodes';
-import type { Episode } from '../lib/db/schema';
+import type { AutoPauseMode, Bookmark, Episode, Settings } from '../lib/db/schema';
 import { describeWriteError } from '../lib/db/storage';
+import { addVocab } from '../lib/db/vocabulary';
 import { durationMismatchWarning } from '../lib/subtitles/parse';
 import type { Cue } from '../lib/subtitles/types';
-import { PlayerEngine, type PlayerState } from '../player/PlayerEngine';
+import {
+  PlayerEngine,
+  type LoopMode,
+  type PlayerState,
+  type WaitState,
+} from '../player/PlayerEngine';
+import { settingsReady, updateSettings, useSettings } from './settingsStore';
 
 export type View = 'transcript' | 'caption';
 type Status = 'idle' | 'loading' | 'ready' | 'missing' | 'audioError';
@@ -21,30 +29,51 @@ function readView(): View {
   }
 }
 
-interface PlayerStore extends PlayerState {
-  status: Status;
-  episodeId: string | null;
+interface EpisodeState {
   title: string;
   cues: Cue[];
   index: number;
   warnings: string[];
   error: string | null;
   ended: boolean;
+  revealed: ReadonlySet<number>; // LRN-1: stays revealed until the episode is closed
+  bookmarks: ReadonlyMap<number, Bookmark>; // by cue index
+  abStart: number | null; // LRN-5: "Loop from here" cue index
+  abEnd: number | null; // LRN-5: "Loop to here" cue index
+  sheet: number | null; // cue index of the open Sentence sheet
+}
+
+interface PlayerStore extends PlayerState, EpisodeState {
+  status: Status;
+  episodeId: string | null;
+  loop: LoopMode;
+  waiting: WaitState | null;
   view: View;
 }
 
-export const engine = new PlayerEngine();
-
-export const usePlayer = create<PlayerStore>(() => ({
-  ...engine.getState(),
-  status: 'idle',
-  episodeId: null,
+const emptyEpisode = (): EpisodeState => ({
   title: '',
   cues: [],
   index: -1,
   warnings: [],
   error: null,
   ended: false,
+  revealed: new Set(),
+  bookmarks: new Map(),
+  abStart: null,
+  abEnd: null,
+  sheet: null,
+});
+
+export const engine = new PlayerEngine();
+
+export const usePlayer = create<PlayerStore>(() => ({
+  ...engine.getState(),
+  ...emptyEpisode(),
+  status: 'idle',
+  episodeId: null,
+  loop: { kind: 'off' },
+  waiting: null,
   view: readView(),
 }));
 
@@ -78,6 +107,13 @@ engine.on('statechange', (state) => {
   usePlayer.setState(state.playing ? { ...state, ended: false } : state);
   if (wasPlaying && !state.playing) void savePosition();
 });
+engine.on('loopchange', (loop) => usePlayer.setState({ loop }));
+engine.on('wait', (waiting) => usePlayer.setState({ waiting }));
+engine.on('cueend', (index) => {
+  // LRN-2: listen first, then check.
+  const { subtitleVisibility, revealAfterCue } = useSettings.getState();
+  if (subtitleVisibility === 'blurred' && revealAfterCue) reveal(index);
+});
 engine.on('ended', () => {
   const { episodeId } = usePlayer.getState();
   if (!episodeId) return;
@@ -107,7 +143,6 @@ export function toggleView(): void {
 
 /** Loads audio into the engine and restores the position (PLY-1). False if it cannot play. */
 async function startPlayback(episode: Episode, audio: Blob, token: number): Promise<boolean> {
-  const rate = usePlayer.getState().rate; // PLY-3: last speed is the default
   try {
     await engine.load(audio, episode.cues, episode.offsetMs);
   } catch {
@@ -117,7 +152,10 @@ async function startPlayback(episode: Episode, audio: Blob, token: number): Prom
     return false;
   }
   if (token !== openToken) return false;
-  engine.setRate(rate);
+  const { defaultRate, autoPause } = useSettings.getState();
+  engine.setRate(defaultRate);
+  engine.setAutoPause(autoPause);
+  engine.setLoop({ kind: 'off' });
   engine.seek(episode.finished ? 0 : episode.lastPositionSec);
   const mismatch = durationMismatchWarning(episode.cues, engine.getState().duration);
   usePlayer.setState({ status: 'ready', error: null, warnings: mismatch ? [mismatch] : [] });
@@ -129,23 +167,23 @@ async function startPlayback(episode: Episode, audio: Blob, token: number): Prom
 export async function openEpisode(id: string): Promise<void> {
   const token = ++openToken;
   engine.pause();
-  usePlayer.setState({
-    status: 'loading',
-    episodeId: id,
-    title: '',
-    cues: [],
-    index: -1,
-    warnings: [],
-    error: null,
-    ended: false,
-  });
-  const [episode, audio] = await Promise.all([getEpisode(id), getAudio(id)]);
+  usePlayer.setState({ ...emptyEpisode(), status: 'loading', episodeId: id });
+  const [episode, audio, bookmarks] = await Promise.all([
+    getEpisode(id),
+    getAudio(id),
+    listBookmarks(id),
+    settingsReady,
+  ]);
   if (token !== openToken) return;
   if (!episode) {
     usePlayer.setState({ status: 'missing' });
     return;
   }
-  usePlayer.setState({ title: episode.title, cues: episode.cues });
+  usePlayer.setState({
+    title: episode.title,
+    cues: episode.cues,
+    bookmarks: new Map(bookmarks.map((b) => [b.cueIndex, b])),
+  });
   if (!audio) {
     usePlayer.setState({ status: 'audioError', error: 'The audio for this episode is missing.' });
     return;
@@ -182,16 +220,7 @@ export function closeEpisode(): void {
   void savePosition();
   openToken++;
   engine.pause();
-  usePlayer.setState({
-    status: 'idle',
-    episodeId: null,
-    title: '',
-    cues: [],
-    index: -1,
-    warnings: [],
-    error: null,
-    ended: false,
-  });
+  usePlayer.setState({ ...emptyEpisode(), status: 'idle', episodeId: null });
 }
 
 /** PLY-4: the sync offset is saved per episode. */
@@ -201,8 +230,122 @@ export function setOffset(offsetMs: number): void {
   if (episodeId) void saveEpisode(episodeId, { offsetMs: engine.getState().offsetMs });
 }
 
+/** PLY-3: a speed change applies at once and becomes the default. */
+export function setRate(rate: number): void {
+  engine.setRate(rate);
+  updateSettings({ defaultRate: engine.getState().rate });
+}
+
 /** PLY-5: play the finished episode again from the start. */
 export function replay(): void {
   engine.seek(0);
   void engine.play();
+}
+
+// Learning tools (LRN)
+
+const VISIBILITY: Settings['subtitleVisibility'][] = ['visible', 'blurred', 'hidden'];
+
+/** LRN-1: Visible, Blurred, Hidden. */
+export function cycleVisibility(): void {
+  const current = VISIBILITY.indexOf(useSettings.getState().subtitleVisibility);
+  updateSettings({ subtitleVisibility: VISIBILITY[(current + 1) % VISIBILITY.length]! });
+}
+
+export function reveal(index: number): void {
+  const { revealed } = usePlayer.getState();
+  if (!revealed.has(index)) usePlayer.setState({ revealed: new Set(revealed).add(index) });
+}
+
+/** TRN-3, LRN-1: in Blurred mode the first tap reveals a sentence, the next one seeks. */
+export function tapSentence(index: number): void {
+  const blurred = useSettings.getState().subtitleVisibility === 'blurred';
+  if (blurred && !usePlayer.getState().revealed.has(index)) reveal(index);
+  else engine.seekToCue(index, { play: true });
+}
+
+/** LRN-3 */
+export function setAutoPause(mode: AutoPauseMode): void {
+  engine.setAutoPause(mode);
+  updateSettings({ autoPause: mode });
+}
+
+/** LRN-4: loop a sentence (the current one by default), or stop looping with null. */
+export function setSentenceLoop(times: number | 'infinite' | null, index?: number): void {
+  usePlayer.setState({ abStart: null, abEnd: null });
+  const i = index ?? Math.max(0, usePlayer.getState().index);
+  engine.setLoop(times === null ? { kind: 'off' } : { kind: 'cue', index: i, times });
+}
+
+/** LRN-5: "Loop from here" and "Loop to here"; the loop starts once both ends are set. */
+export function setLoopEnd(end: 'from' | 'to', index: number): void {
+  const state = usePlayer.getState();
+  const abStart = end === 'from' ? index : (state.abStart ?? index);
+  const abEnd = end === 'to' ? index : state.abEnd;
+  usePlayer.setState({ abStart, abEnd });
+  if (abEnd === null) return;
+  const from = state.cues[Math.min(abStart, abEnd)]!;
+  const to = state.cues[Math.max(abStart, abEnd)]!;
+  engine.setLoop({ kind: 'range', startSec: from.startSec, endSec: to.endSec });
+}
+
+export function clearLoopRange(): void {
+  usePlayer.setState({ abStart: null, abEnd: null });
+  if (usePlayer.getState().loop.kind === 'range') engine.setLoop({ kind: 'off' });
+}
+
+// Sentence sheet (SEN)
+
+export function openSheet(index: number): void {
+  engine.pause();
+  usePlayer.setState({ sheet: index });
+}
+
+export function closeSheet(): void {
+  usePlayer.setState({ sheet: null });
+}
+
+export async function toggleBookmark(index: number): Promise<void> {
+  const { episodeId, bookmarks, cues } = usePlayer.getState();
+  const cue = cues[index];
+  if (!episodeId || !cue) return;
+  try {
+    const existing = bookmarks.get(index);
+    const next = new Map(usePlayer.getState().bookmarks);
+    if (existing) {
+      await deleteBookmark(existing.id);
+      next.delete(index);
+    } else {
+      const bookmark = await addBookmark({
+        episodeId,
+        cueIndex: index,
+        text: cue.text,
+        startSec: cue.startSec,
+      });
+      next.set(index, bookmark);
+    }
+    usePlayer.setState({ bookmarks: next });
+  } catch (e) {
+    usePlayer.setState({ error: await describeWriteError(e) });
+  }
+}
+
+/** SEN-3: saves a word or phrase with its sentence. Returns the message to show. */
+export async function saveToVocabulary(word: string, index: number): Promise<string> {
+  const { episodeId, title, cues } = usePlayer.getState();
+  const cue = cues[index];
+  if (!episodeId || !cue || !word) return '';
+  try {
+    const result = await addVocab({
+      word,
+      sentence: cue.text,
+      episodeId,
+      episodeTitle: title,
+      cueIndex: index,
+      timeSec: cue.startSec,
+    });
+    return result === 'exists' ? 'Already saved' : `Saved “${word}”`;
+  } catch (e) {
+    return describeWriteError(e);
+  }
 }

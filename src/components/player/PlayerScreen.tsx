@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   closeEpisode,
+  cycleVisibility,
   engine,
   openEpisode,
   reimportAudio,
@@ -10,10 +11,12 @@ import {
   toggleView,
   usePlayer,
 } from '../../stores/playerStore';
+import { updateSettings, useSettings } from '../../stores/settingsStore';
 import { Icon } from '../common/Icon';
 import ui from '../common/ui.module.css';
 import { CaptionView } from './CaptionView';
 import { Controls } from './Controls';
+import { SentenceSheet } from './SentenceSheet';
 import { TranscriptView } from './TranscriptView';
 import styles from './player.module.css';
 
@@ -49,6 +52,7 @@ export function PlayerScreen() {
             >
               <Icon name={view === 'caption' ? 'transcript' : 'caption'} />
             </button>
+            <VisibilityButton />
             <SyncMenu />
           </>
         )}
@@ -71,6 +75,7 @@ function Ready() {
   const warnings = usePlayer((s) => s.warnings);
   const error = usePlayer((s) => s.error);
   const ended = usePlayer((s) => s.ended);
+  const sheet = usePlayer((s) => s.sheet);
   const navigate = useNavigate();
   const notice = error ?? warnings.join(' ');
 
@@ -104,7 +109,25 @@ function Ready() {
         {view === 'caption' ? <CaptionView /> : <TranscriptView />}
       </main>
       <Controls />
+      {sheet !== null && <SentenceSheet key={sheet} index={sheet} />}
     </>
+  );
+}
+
+const VISIBILITY_ICON = { visible: 'eye', blurred: 'blur', hidden: 'eyeOff' } as const;
+
+/** LRN-1: one button cycles Visible, Blurred, Hidden. */
+function VisibilityButton() {
+  const visibility = useSettings((s) => s.subtitleVisibility);
+  return (
+    <button
+      className={ui.iconButton}
+      aria-label={`Subtitles ${visibility}. Change`}
+      title={`Subtitles ${visibility}`}
+      onClick={cycleVisibility}
+    >
+      <Icon name={VISIBILITY_ICON[visibility]} />
+    </button>
   );
 }
 
@@ -133,9 +156,10 @@ function AudioError() {
 // Reads the engine, not the render, so fast repeated clicks all count.
 const shiftOffset = (ms: number) => setOffset(engine.getState().offsetMs + ms);
 
-/** PLY-4: subtitle sync in the overflow menu, saved per episode. */
+/** PLY-4: subtitle sync in the overflow menu, saved per episode; LRN-2 toggle. */
 function SyncMenu() {
   const offsetMs = usePlayer((s) => s.offsetMs);
+  const revealAfterCue = useSettings((s) => s.revealAfterCue);
 
   return (
     <>
@@ -160,6 +184,14 @@ function SyncMenu() {
         <button className={ui.chip} disabled={!offsetMs} onClick={() => setOffset(0)}>
           Reset
         </button>
+        <label className={styles.checkbox}>
+          <input
+            type="checkbox"
+            checked={revealAfterCue}
+            onChange={(e) => updateSettings({ revealAfterCue: e.target.checked })}
+          />
+          Reveal blurred sentences after listening
+        </label>
       </div>
     </>
   );

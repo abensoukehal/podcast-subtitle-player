@@ -5,14 +5,26 @@ import {
   nextCueIndex,
   prevCueIndex,
 } from '../lib/cues';
+import type { AutoPauseMode } from '../lib/db/schema';
 import type { Cue } from '../lib/subtitles/types';
 
 /** CUE-6: a cue counts as ended this early, so a stop lands before the next syllable. */
 const END_EARLY_SEC = 0.03;
 const TICK_MS = 100;
+const LOOP_GAP_MS = 500; // LRN-4
+export const SLOW_RATE = 0.75; // LRN-6
 export const MIN_RATE = 0.5;
 export const MAX_RATE = 1.5;
 export const MAX_OFFSET_MS = 5000;
+
+export type LoopMode =
+  | { kind: 'off' }
+  | { kind: 'cue'; index: number; times: number | 'infinite' }
+  | { kind: 'range'; startSec: number; endSec: number };
+
+/** Why playback is paused by the engine itself; 'gap' is the pause between loop repeats. */
+export type WaitState =
+  { kind: 'manual' } | { kind: 'timed'; ms: number } | { kind: 'gap'; ms: number };
 
 export interface PlayerState {
   playing: boolean;
@@ -27,6 +39,8 @@ interface Events {
   cuechange: number; // current sentence index (CUE-2), -1 without cues
   cueend: number; // index of the cue that just ended (CUE-6)
   statechange: PlayerState;
+  loopchange: LoopMode;
+  wait: WaitState | null;
   ended: undefined;
   error: MediaError | null;
 }
@@ -35,7 +49,11 @@ type Listeners = { [K in keyof Events]: Set<(payload: Events[K]) => void> };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-/** Owns the single audio element. Cue tracking runs in an animation-frame loop while playing. */
+/**
+ * Owns the single audio element. Cue tracking runs in an animation-frame loop while playing,
+ * and on timeupdate, which keeps loop and auto-pause working when frames stop in the
+ * background (MOB-3).
+ */
 export class PlayerEngine {
   private readonly audio: HTMLAudioElement;
   private cues: Cue[] = [];
@@ -46,12 +64,22 @@ export class PlayerEngine {
   private armedFrom = 0; // CUE-6: first cue whose end may still fire in this pass
   private frame = 0;
   private lastTick = -Infinity;
+  private loop: LoopMode = { kind: 'off' };
+  private loopPlays = 0;
+  private range: { from: number; to: number } | null = null; // cue indices of an A-B loop
+  private autoPause: AutoPauseMode = { kind: 'off' };
+  private slow: { index: number; rate: number } | null = null; // replay slowly, rate to restore
+  private waiting: WaitState | null = null;
+  private resume: (() => void) | null = null; // what Play does while waiting
+  private waitTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly removeAudioListeners: () => void;
   private readonly listeners: Listeners = {
     tick: new Set(),
     cuechange: new Set(),
     cueend: new Set(),
     statechange: new Set(),
+    loopchange: new Set(),
+    wait: new Set(),
     ended: new Set(),
     error: new Set(),
   };
@@ -75,6 +103,7 @@ export class PlayerEngine {
           this.emitState();
         },
       ],
+      ['timeupdate', () => this.update()],
       ['seeked', () => this.sync()],
       ['ratechange', () => this.emitState()],
       ['durationchange', () => this.emitState()],
@@ -88,6 +117,7 @@ export class PlayerEngine {
 
   async load(audio: Blob, cues: Cue[], offsetMs: number): Promise<void> {
     this.pause();
+    this.slow = null;
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = URL.createObjectURL(audio);
     this.cues = cues;
@@ -113,16 +143,16 @@ export class PlayerEngine {
     this.emitState();
   }
 
-  /** Never throws: a rejected play() (autoplay rules) just leaves the paused state. */
+  /** Continues after an auto-pause or loop gap. Never throws (rejected play() stays paused). */
   async play(): Promise<void> {
-    try {
-      await this.audio.play();
-    } catch {
-      this.emitState();
-    }
+    const resume = this.resume;
+    this.clearWait();
+    if (resume) resume();
+    else await this.playAudio();
   }
 
   pause(): void {
+    this.clearWait();
     this.audio.pause();
   }
 
@@ -132,6 +162,8 @@ export class PlayerEngine {
   }
 
   seek(timeSec: number): void {
+    this.clearWait();
+    this.restoreSlow();
     const d = this.audio.duration;
     this.audio.currentTime = clamp(timeSec, 0, Number.isFinite(d) ? d : Infinity);
     this.holdIndex = -1;
@@ -139,14 +171,16 @@ export class PlayerEngine {
     this.sync();
   }
 
+  /** A sentence loop follows the user to the sentence they pick. */
   seekToCue(index: number, opts: { play?: boolean } = {}): void {
-    const cue = this.cues[index];
-    if (!cue) return;
-    this.audio.currentTime = cueSeekTime(cue, this.offsetMs);
-    this.holdIndex = index;
-    this.armedFrom = index; // the pre-roll is inside cue index - 1: never fire its end
-    this.sync();
-    if (opts.play) void this.play();
+    if (!this.cues[index]) return;
+    this.clearWait();
+    this.restoreSlow();
+    if (this.loop.kind === 'cue' && this.loop.index !== index) {
+      this.setLoop({ ...this.loop, index });
+    }
+    this.jumpTo(index);
+    if (opts.play) void this.playAudio();
   }
 
   prevCue(): void {
@@ -157,13 +191,24 @@ export class PlayerEngine {
     this.seekToCue(nextCueIndex(this.cues, this.cueTime()));
   }
 
-  replayCue(): void {
-    this.seekToCue(this.index, { play: true });
+  replayCue(index = this.index): void {
+    this.seekToCue(index, { play: true });
+  }
+
+  /** LRN-6: plays one sentence at 0.75x, then restores the speed. */
+  replayCueSlowly(index = this.index): void {
+    if (!this.cues[index]) return;
+    const rate = this.slow?.rate ?? this.audio.playbackRate;
+    this.seekToCue(index);
+    this.slow = { index, rate };
+    this.audio.playbackRate = SLOW_RATE;
+    void this.playAudio();
   }
 
   /** PLY-3: 0.5x to 1.5x in 0.05 steps, pitch preserved. */
   setRate(rate: number): void {
     const r = Math.round(clamp(rate, MIN_RATE, MAX_RATE) * 20) / 20;
+    this.slow = null;
     this.audio.playbackRate = r;
     this.audio.defaultPlaybackRate = r; // survives a src change
   }
@@ -174,6 +219,25 @@ export class PlayerEngine {
     this.rearm();
     this.sync();
     this.emitState();
+  }
+
+  /** LRN-4, LRN-5. A range must start and end on cue boundaries; otherwise the loop is off. */
+  setLoop(mode: LoopMode): void {
+    this.loop = mode;
+    this.loopPlays = 0;
+    this.range = null;
+    if (mode.kind === 'range') {
+      const from = this.cues.findIndex((c) => Math.abs(c.startSec - mode.startSec) < 1e-3);
+      const to = this.cues.findIndex((c) => Math.abs(c.endSec - mode.endSec) < 1e-3);
+      if (from >= 0 && to >= from) this.range = { from, to };
+      else this.loop = { kind: 'off' };
+    }
+    this.emit('loopchange', this.loop);
+  }
+
+  /** LRN-3 */
+  setAutoPause(mode: AutoPauseMode): void {
+    this.autoPause = mode;
   }
 
   on<K extends keyof Events>(event: K, cb: (payload: Events[K]) => void): () => void {
@@ -195,6 +259,7 @@ export class PlayerEngine {
 
   destroy(): void {
     cancelAnimationFrame(this.frame);
+    this.clearWait();
     this.audio.pause();
     this.removeAudioListeners();
     Object.values(this.listeners).forEach((set) => set.clear());
@@ -203,8 +268,23 @@ export class PlayerEngine {
     if (this.url) URL.revokeObjectURL(this.url);
   }
 
+  private async playAudio(): Promise<void> {
+    try {
+      await this.audio.play();
+    } catch {
+      this.emitState(); // MOB-2: show the paused state
+    }
+  }
+
   private cueTime(): number {
     return cueTime(this.audio.currentTime, this.offsetMs);
+  }
+
+  private jumpTo(index: number): void {
+    this.audio.currentTime = cueSeekTime(this.cues[index]!, this.offsetMs);
+    this.holdIndex = index;
+    this.armedFrom = index; // the pre-roll is inside cue index - 1: never fire its end
+    this.sync();
   }
 
   /** After a seek, arm only cues that have not ended yet at the new position. */
@@ -212,6 +292,61 @@ export class PlayerEngine {
     const t = this.cueTime();
     const i = this.cues.findIndex((c) => c.endSec - END_EARLY_SEC > t);
     this.armedFrom = i < 0 ? this.cues.length : i;
+  }
+
+  private restoreSlow(): void {
+    if (!this.slow) return;
+    this.audio.playbackRate = this.slow.rate;
+    this.slow = null;
+  }
+
+  /** Pauses on the engine's behalf; Play, or the timer for timed waits, runs resume. */
+  private wait(state: WaitState, resume?: () => void): void {
+    this.audio.pause();
+    this.clearWait();
+    this.waiting = state;
+    this.resume = resume ?? null;
+    if (state.kind !== 'manual') {
+      this.waitTimer = setTimeout(() => void this.play(), state.ms);
+    }
+    this.emit('wait', state);
+  }
+
+  private clearWait(): void {
+    clearTimeout(this.waitTimer);
+    this.resume = null;
+    if (this.waiting) {
+      this.waiting = null;
+      this.emit('wait', null);
+    }
+  }
+
+  /** Loop, A-B loop and auto-pause decisions at the end of a cue. */
+  private onCueEnd(index: number): void {
+    if (this.slow?.index === index) this.restoreSlow();
+    const loop = this.loop;
+    if (loop.kind === 'cue' && loop.index === index) {
+      this.loopPlays++;
+      if (loop.times === 'infinite' || this.loopPlays < loop.times) {
+        this.wait({ kind: 'gap', ms: LOOP_GAP_MS }, () => {
+          this.jumpTo(index);
+          void this.playAudio();
+        });
+        return;
+      }
+      this.setLoop({ kind: 'off' }); // LRN-4: then play on, and auto-pause applies once
+    }
+    if (this.range && index === this.range.to) {
+      this.jumpTo(this.range.from);
+      return;
+    }
+    const cue = this.cues[index]!;
+    if (this.autoPause.kind === 'manual') {
+      this.wait({ kind: 'manual' });
+    } else if (this.autoPause.kind === 'timed') {
+      const ms = (cue.endSec - cue.startSec) * this.autoPause.factor * 1000;
+      this.wait({ kind: 'timed', ms }, () => void this.playAudio());
+    }
   }
 
   private startLoop(): void {
@@ -250,6 +385,7 @@ export class PlayerEngine {
     if (!this.audio.paused && cue && current >= this.armedFrom && t >= cue.endSec - END_EARLY_SEC) {
       this.armedFrom = current + 1;
       this.emit('cueend', current);
+      this.onCueEnd(current);
     }
   }
 
