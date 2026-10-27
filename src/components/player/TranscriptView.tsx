@@ -1,8 +1,8 @@
-import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { Settings } from '../../lib/db/schema';
 import type { Cue } from '../../lib/subtitles/types';
 import { formatTime } from '../../lib/time';
-import { openSheet, tapSentence, usePlayer } from '../../stores/playerStore';
+import { openSheet, tapSentence, toggleSearch, usePlayer } from '../../stores/playerStore';
 import { useSettings } from '../../stores/settingsStore';
 import { Icon } from '../common/Icon';
 import ui from '../common/ui.module.css';
@@ -18,11 +18,20 @@ interface RowProps {
   visibility: Settings['subtitleVisibility'];
   revealed: boolean;
   bookmarked: boolean;
+  query: string;
   onTap: (index: number) => void;
 }
 
 /** TRN-5, TRN-6: memoized, so a sentence change re-renders only the old and new current rows. */
-const Row = memo(function Row({ cue, active, visibility, revealed, bookmarked, onTap }: RowProps) {
+const Row = memo(function Row({
+  cue,
+  active,
+  visibility,
+  revealed,
+  bookmarked,
+  query,
+  onTap,
+}: RowProps) {
   const longPress = useLongPress(() => openSheet(cue.index));
   const time = formatTime(cue.startSec);
   return (
@@ -40,7 +49,7 @@ const Row = memo(function Row({ cue, active, visibility, revealed, bookmarked, o
             </span>
           )}
         </span>
-        <SentenceText cue={cue} visibility={visibility} revealed={revealed} />
+        <SentenceText cue={cue} visibility={visibility} revealed={revealed} query={query} />
       </button>
       <button
         className={`${ui.iconButton} ${styles.rowActions}`}
@@ -60,8 +69,27 @@ export function TranscriptView() {
   const bookmarks = usePlayer((s) => s.bookmarks);
   const visibility = useSettings((s) => s.subtitleVisibility);
   const autoScroll = useSettings((s) => s.autoScroll);
+  const searching = usePlayer((s) => s.searching);
   const listRef = useRef<HTMLOListElement>(null);
   const [follow, setFollow] = useState(true);
+  const [query, setQuery] = useState('');
+  const [matchPos, setMatchPos] = useState(-1);
+
+  // TRN-7: matching rows get the query (others keep '', so they do not re-render).
+  const q = searching ? query.trim().toLowerCase() : '';
+  const matches = useMemo(
+    () => (q ? cues.filter((c) => c.text.toLowerCase().includes(q)).map((c) => c.index) : []),
+    [cues, q],
+  );
+  const matchSet = useMemo(() => new Set(matches), [matches]);
+
+  const jumpToMatch = (step: 1 | -1) => {
+    if (!matches.length) return;
+    const pos = (matchPos + step + matches.length) % matches.length;
+    setMatchPos(pos);
+    setFollow(false);
+    listRef.current?.children[matches[pos]!]?.scrollIntoView({ block: 'start' });
+  };
 
   // TRN-3, TRN-4: tapping a sentence seeks (or reveals, LRN-1) and turns auto-scroll back on.
   const tap = useCallback((i: number) => {
@@ -82,7 +110,30 @@ export function TranscriptView() {
   const stopFollowing = () => setFollow(false);
 
   return (
-    <>
+    <div className={styles.transcriptWrap}>
+      {searching && (
+        <div className={styles.searchBar} role="search">
+          <input
+            type="search"
+            className={styles.searchInput}
+            placeholder="Search the transcript"
+            aria-label="Search the transcript. Enter for the next match"
+            autoFocus
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setMatchPos(-1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') jumpToMatch(e.shiftKey ? -1 : 1);
+              if (e.key === 'Escape') toggleSearch();
+            }}
+          />
+          <span className={styles.searchCount} aria-live="polite">
+            {q && (matches.length ? `${matchPos + 1} of ${matches.length}` : 'No matches')}
+          </span>
+        </div>
+      )}
       <ol
         ref={listRef}
         className={styles.transcript}
@@ -99,6 +150,7 @@ export function TranscriptView() {
             visibility={visibility}
             revealed={revealed.has(cue.index)}
             bookmarked={bookmarks.has(cue.index)}
+            query={matchSet.has(cue.index) ? q : ''}
             onTap={tap}
           />
         ))}
@@ -108,6 +160,6 @@ export function TranscriptView() {
           Back to current
         </button>
       )}
-    </>
+    </div>
   );
 }

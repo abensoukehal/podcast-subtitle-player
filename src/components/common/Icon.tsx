@@ -19,6 +19,11 @@ const PATHS: Record<string, string | string[]> = {
   eyeOff: [`${eye}m0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8z`, 'M3.4 2 22 20.6 20.6 22 2 3.4z'],
   blur: dots,
   bookmark: 'M6 3h12v18l-6-4-6 4z',
+  search:
+    'M10 4a6 6 0 1 0 3.5 10.9l5.3 5.3 1.4-1.4-5.3-5.3A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z',
+  library: 'M4 4h4v16H4zm6 0h4v16h-4zm5.6 1.3 3.9-1 4 15.4-3.9 1z',
+  words: 'M5 3h14v18H5zm2 2v14h10V5zm2 2h6v2H9zm0 4h6v2H9zm0 4h4v2H9z',
+  settings: 'M3 6h10v2H3zm14 0h4v2h-4zm-2-2h2v6h-2zM3 16h4v2H3zm8 0h10v2H11zm-2-2h2v6H9z',
   close:
     'M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z',
 };
@@ -38,6 +43,10 @@ export type IconName =
   | 'eyeOff'
   | 'blur'
   | 'bookmark'
+  | 'search'
+  | 'library'
+  | 'words'
+  | 'settings'
   | 'close';
 
 export function Icon({ name, size = 24 }: { name: IconName; size?: number }) {

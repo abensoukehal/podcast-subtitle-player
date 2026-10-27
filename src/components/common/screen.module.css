@@ -1,6 +1,5 @@
 .screen {
   max-width: 760px;
-  min-height: 100dvh;
   margin: 0 auto;
   padding: 16px;
   padding-top: max(16px, env(safe-area-inset-top));

@@ -2,11 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
 
+// Runs against the production build (`pnpm e2e` builds first), so the service worker and
+// the Content-Security-Policy are part of every test.
 export default defineConfig({
   testDir: 'tests/e2e',
-  use: { baseURL: `http://localhost:${PORT}` },
+  use: { baseURL: `http://localhost:${PORT}/` },
   webServer: {
-    command: `pnpm dev --port ${PORT} --strictPort`,
+    command: `pnpm preview --port ${PORT} --strictPort`,
     port: PORT,
     reuseExistingServer: !process.env.CI,
   },

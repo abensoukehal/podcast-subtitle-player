@@ -6,6 +6,7 @@ import { describeWriteError } from '../lib/db/storage';
 import { addVocab } from '../lib/db/vocabulary';
 import { durationMismatchWarning } from '../lib/subtitles/parse';
 import type { Cue } from '../lib/subtitles/types';
+import { bindMediaSession } from '../player/mediaSession';
 import {
   PlayerEngine,
   type LoopMode,
@@ -41,6 +42,7 @@ interface EpisodeState {
   abStart: number | null; // LRN-5: "Loop from here" cue index
   abEnd: number | null; // LRN-5: "Loop to here" cue index
   sheet: number | null; // cue index of the open Sentence sheet
+  searching: boolean; // TRN-7: the transcript search bar is open
 }
 
 interface PlayerStore extends PlayerState, EpisodeState {
@@ -63,6 +65,7 @@ const emptyEpisode = (): EpisodeState => ({
   abStart: null,
   abEnd: null,
   sheet: null,
+  searching: false,
 });
 
 export const engine = new PlayerEngine();
@@ -79,6 +82,7 @@ export const usePlayer = create<PlayerStore>(() => ({
 
 let lastSave = 0;
 let openToken = 0; // the latest open wins when loads overlap
+let unbindMediaSession: () => void = () => undefined;
 
 /** Writes to an episode; a failure is shown, never thrown (STO-5). */
 async function saveEpisode(id: string, patch: Parameters<typeof updateEpisode>[1]): Promise<void> {
@@ -90,7 +94,7 @@ async function saveEpisode(id: string, patch: Parameters<typeof updateEpisode>[1
 }
 
 /** STO-2: saves the current position of the open episode. */
-async function savePosition(): Promise<void> {
+export async function savePosition(): Promise<void> {
   const { episodeId, status } = usePlayer.getState();
   if (!episodeId || status !== 'ready') return;
   lastSave = Date.now();
@@ -130,6 +134,11 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => void savePosition());
 
+/** TRN-7 */
+export function toggleSearch(): void {
+  usePlayer.setState({ searching: !usePlayer.getState().searching });
+}
+
 /** TRN-1: the chosen view is remembered. */
 export function toggleView(): void {
   const view: View = usePlayer.getState().view === 'caption' ? 'transcript' : 'caption';
@@ -160,6 +169,12 @@ async function startPlayback(episode: Episode, audio: Blob, token: number): Prom
   const mismatch = durationMismatchWarning(episode.cues, engine.getState().duration);
   usePlayer.setState({ status: 'ready', error: null, warnings: mismatch ? [mismatch] : [] });
   lastSave = Date.now();
+  unbindMediaSession();
+  unbindMediaSession = bindMediaSession(
+    engine,
+    episode.title,
+    () => useSettings.getState().skipSec,
+  );
   return true;
 }
 
@@ -227,6 +242,7 @@ export function closeEpisode(): void {
   void savePosition();
   openToken++;
   engine.pause();
+  unbindMediaSession();
   usePlayer.setState({ ...emptyEpisode(), status: 'idle', episodeId: null });
 }
 
@@ -356,3 +372,33 @@ export async function saveToVocabulary(word: string, index: number): Promise<str
     return describeWriteError(e);
   }
 }
+
+// MOB-4: keep the screen on while playing in Caption view, if the setting allows.
+
+let wakeLock: WakeLockSentinel | null = null;
+let wantWakeLock = false;
+
+function syncWakeLock(): void {
+  const { status, playing, view } = usePlayer.getState();
+  const want =
+    status === 'ready' &&
+    playing &&
+    view === 'caption' &&
+    useSettings.getState().keepScreenOn &&
+    document.visibilityState === 'visible';
+  if (want === wantWakeLock || !('wakeLock' in navigator)) return;
+  wantWakeLock = want;
+  if (want) {
+    navigator.wakeLock.request('screen').then(
+      (lock) => (wantWakeLock ? (wakeLock = lock) : void lock.release()),
+      () => undefined, // refused, e.g. low battery
+    );
+  } else {
+    void wakeLock?.release();
+    wakeLock = null;
+  }
+}
+
+usePlayer.subscribe(syncWakeLock);
+useSettings.subscribe(syncWakeLock);
+document.addEventListener('visibilitychange', syncWakeLock); // the browser releases it when hidden

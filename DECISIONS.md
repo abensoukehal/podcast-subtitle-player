@@ -81,3 +81,22 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **SET-2 delete all.** Typing DELETE enables the button; it empties every store, including settings.
 - **SET-3.** The shortcut list is shown now and lives in `src/components/common/shortcuts.ts`; the keys themselves work from M6.
 - **UI-6 theme early.** The theme setting needs a light/dark override, so the dark colors now apply under `prefers-color-scheme` unless `data-theme` on `<html>` says otherwise. Two module-level dark rules became a `--danger` token.
+
+## M6
+
+- **Dependencies.** Added vite-plugin-pwa and its peer workbox-window (stack table).
+- **PWA-1 colors.** A manifest has one `theme_color`, so it is the light top-bar color; `<meta name="theme-color">` tags cover light and dark. The icon (speech bubble with a sound wave) is drawn in `scripts/make-icons.mjs` and rendered to PNG with Playwright's Chromium, so no image tool or new dependency is needed.
+- **PWA-2.** Workbox precaches HTML, JS, CSS, icons and the manifest only. Audio is played from blob URLs out of IndexedDB and never goes through the service worker.
+- **PWA-3.** `registerType: 'prompt'`: a waiting service worker activates only when the user taps Reload in the "New version available" message.
+- **DEP-3.** The CSP meta tag is added at build time only; the dev server needs inline scripts for hot reload. The build needed no change to the spec's policy, and no violations were seen.
+- **E2E on the build.** `pnpm e2e` builds and runs Playwright against `vite preview`, so the service worker and the CSP are exercised in every end-to-end test. E2E-5 passes in Chromium and WebKit.
+- **MOB-1.** Seek back/forward use the offset the OS asks for, or skipSec. `setPositionState` is updated on state changes and at most once per second while playing.
+- **MOB-3.** Covered since M4 by checking cue ends on `timeupdate` as well as in the frame loop, without an explicit switch on visibility.
+- **MOB-4.** Added `Settings.keepScreenOn`, default on: the wake lock is held only while playing in Caption view with the page visible.
+- **UI-1.** Vocabulary, Bookmarks and Settings lost their back button; the tab bar (top bar on desktop) replaces it. The player keeps its back button and has no tab bar.
+- **UI-2.** "Replace subtitles" is also in the player's ⋮ menu; it shares the library's code and reloads the episode afterwards.
+- **UI-4.** File pickers inside chip labels are now visually hidden but focusable (they were `hidden`, which kept keyboard users out), and the A-B loop clear button is 44 px.
+- **UI-6.** All text and highlight color pairs were measured: the lowest is 4.80:1 (muted text on the dark notice background).
+- **Shortcuts.** Ignored with Ctrl/Cmd/Alt, in any input, select or text area (so the seek bar keeps its arrow keys), and while a dialog is open. Space is prevented by default so it never also presses a focused button. "?" opens a dialog with the same table as Settings.
+- **TRN-7.** The search button is in the player header in Transcript view. Enter jumps to the next match and Shift+Enter to the previous one; jumping pauses auto-scroll, and "Back to current" returns. Esc closes the search.
+- **Not checked here.** AC-1 to AC-6 need a real phone and a real NotebookLM episode, and the Lighthouse score was not measured. The built-in browser pane of the development app refuses service workers, so offline use was verified with Playwright only.

@@ -7,6 +7,8 @@ import {
   renameEpisode,
   replaceEpisodeSubtitles,
   setFinished,
+  SUBTITLE_RESET_WARNING,
+  useLibrary,
 } from '../../stores/libraryStore';
 import { Icon } from '../common/Icon';
 import ui from '../common/ui.module.css';
@@ -86,10 +88,8 @@ export function EpisodeCard({ episode }: { episode: Episode }) {
           const file = e.target.files?.[0];
           e.target.value = '';
           if (!file) return;
-          void replaceEpisodeSubtitles(episode, file, () =>
-            confirm(
-              'These subtitles have a different number of sentences. The position and bookmarks of this episode will be removed. Continue?',
-            ),
+          void replaceEpisodeSubtitles(episode, file, () => confirm(SUBTITLE_RESET_WARNING)).then(
+            ({ error }) => error && useLibrary.setState({ message: error }),
           );
         }}
       />

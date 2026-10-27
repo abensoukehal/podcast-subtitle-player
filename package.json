@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc",
     "test": "vitest run",
-    "e2e": "playwright test --pass-with-no-tests"
+    "e2e": "pnpm build && playwright test",
+    "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
     "idb": "8.0.4",
@@ -36,6 +37,9 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
     "vite": "8.3.5",
-    "vitest": "5.0.5"
-  }
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "5.0.5",
+    "workbox-window": "7.4.1"
+  },
+  "packageManager": "pnpm@12.3.4"
 }

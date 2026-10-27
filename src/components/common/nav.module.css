@@ -1,0 +1,64 @@
+/* Phones: a tab bar fixed at the bottom, within thumb reach. */
+.shell {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
+.nav {
+  position: fixed;
+  z-index: 5;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.item {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+}
+
+.item[aria-current='page'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Desktop: the same items in a top bar. */
+@media (min-width: 768px) {
+  .shell {
+    padding-bottom: 0;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 16px;
+    border-top: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item {
+    display: flex;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 22px;
+    font-size: 0.95rem;
+  }
+
+  .item:hover {
+    background: var(--hover);
+  }
+}

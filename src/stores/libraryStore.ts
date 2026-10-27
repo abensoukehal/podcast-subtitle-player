@@ -177,22 +177,30 @@ export const setFinished = (id: string, finished: boolean) =>
 
 export const removeEpisode = (id: string) => run(() => deleteEpisode(id));
 
+export const SUBTITLE_RESET_WARNING =
+  'These subtitles have a different number of sentences. The position and bookmarks of this episode will be removed. Continue?';
+
 /**
  * LIB-6: parses the new subtitles; if the sentence count changed, asks before position and
- * bookmarks are reset.
+ * bookmarks are reset. Used from the library card and the player menu (UI-2).
  */
 export async function replaceEpisodeSubtitles(
   episode: Episode,
   file: File,
   confirmReset: () => boolean,
-): Promise<void> {
+): Promise<{ replaced: boolean; error?: string }> {
   let cues;
   try {
     cues = parseSubtitles(await file.text(), file.name).cues;
   } catch (e) {
-    useLibrary.setState({ message: e instanceof Error ? e.message : String(e) });
-    return;
+    return { replaced: false, error: e instanceof Error ? e.message : String(e) };
   }
-  if (cues.length !== episode.cues.length && !confirmReset()) return;
-  await run(() => replaceSubtitles(episode.id, cues, file.name));
+  if (cues.length !== episode.cues.length && !confirmReset()) return { replaced: false };
+  try {
+    await replaceSubtitles(episode.id, cues, file.name);
+  } catch (e) {
+    return { replaced: false, error: await describeWriteError(e) };
+  }
+  await refreshLibrary();
+  return { replaced: true };
 }

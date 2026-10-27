@@ -8,7 +8,7 @@ import { refreshLibrary } from '../../stores/libraryStore';
 import { reloadSettings, updateSettings, useSettings } from '../../stores/settingsStore';
 import { downloadFile, today } from '../common/download';
 import { Screen } from '../common/Screen';
-import { SHORTCUTS } from '../common/shortcuts';
+import { ShortcutsTable } from '../common/ShortcutsTable';
 import ui from '../common/ui.module.css';
 import styles from '../common/screen.module.css';
 
@@ -69,6 +69,7 @@ function Playback() {
   const defaultRate = useSettings((s) => s.defaultRate);
   const skipSec = useSettings((s) => s.skipSec);
   const autoScroll = useSettings((s) => s.autoScroll);
+  const keepScreenOn = useSettings((s) => s.keepScreenOn);
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Playback</h2>
@@ -105,6 +106,14 @@ function Playback() {
           onChange={(e) => updateSettings({ autoScroll: e.target.checked })}
         />
         Keep the current sentence in view
+      </label>
+      <label className={styles.check}>
+        <input
+          type="checkbox"
+          checked={keepScreenOn}
+          onChange={(e) => updateSettings({ keepScreenOn: e.target.checked })}
+        />
+        Keep the screen on while playing in Caption view
       </label>
     </section>
   );
@@ -293,12 +302,11 @@ function Storage() {
         >
           Export backup
         </button>
-        <label className={ui.chip} style={{ display: 'inline-grid', placeItems: 'center' }}>
+        <label className={ui.chip}>
           Import backup
           <input
             type="file"
             accept=".json,application/json"
-            hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
               e.target.value = '';
@@ -336,23 +344,7 @@ function Shortcuts() {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>Keyboard shortcuts</h2>
-      <table className={styles.shortcuts}>
-        <tbody>
-          {SHORTCUTS.map(([keys, action]) => (
-            <tr key={action}>
-              <th scope="row">
-                {keys.map((k, i) => (
-                  <span key={k}>
-                    {i > 0 && ' '}
-                    <kbd>{k}</kbd>
-                  </span>
-                ))}
-              </th>
-              <td>{action}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ShortcutsTable />
       <p className={styles.meta}>Shortcuts are ignored while you type in a text field.</p>
     </section>
   );

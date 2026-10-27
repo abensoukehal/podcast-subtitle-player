@@ -1,3 +1,5 @@
+import { expect, type Page } from '@playwright/test';
+
 // Generates the E2E fixture pair in memory, so no binary tools or files are needed.
 
 const SAMPLE_RATE = 8000;
@@ -45,3 +47,14 @@ const ts = (sec: number) =>
 export const SRT = SENTENCES.map(
   (text, i) => `${i + 1}\n${ts(sentenceStart(i))} --> ${ts(sentenceStart(i) + 2.5)}\n${text}\n`,
 ).join('\n');
+
+/** Imports the fixture pair from the library screen. */
+export async function importFixture(page: Page): Promise<void> {
+  await page.goto('./');
+  await page.getByLabel('Import').setInputFiles([
+    { name: 'episode-01.wav', mimeType: 'audio/wav', buffer: makeWav(20) },
+    { name: 'episode-01.srt', mimeType: 'application/x-subrip', buffer: Buffer.from(SRT) },
+  ]);
+  await expect(page.getByText('Added')).toBeVisible();
+  await page.getByRole('button', { name: 'Done' }).click();
+}

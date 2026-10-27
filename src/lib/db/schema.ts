@@ -51,6 +51,7 @@ export interface Settings {
   revealAfterCue: boolean;
   autoPause: AutoPauseMode;
   dictionaryUrlTemplate: string;
+  keepScreenOn: boolean; // MOB-4: while playing in Caption view
 }
 
 /** A Blob, or its bytes where the browser cannot store Blobs (see toStored in episodes.ts). */

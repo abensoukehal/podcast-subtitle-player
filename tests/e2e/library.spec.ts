@@ -1,15 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { makeWav, SENTENCES, sentenceStart, SRT } from './fixtures';
-
-async function importFixture(page: Page) {
-  await page.goto('/');
-  await page.getByLabel('Import').setInputFiles([
-    { name: 'episode-01.wav', mimeType: 'audio/wav', buffer: makeWav(20) },
-    { name: 'episode-01.srt', mimeType: 'application/x-subrip', buffer: Buffer.from(SRT) },
-  ]);
-  await expect(page.getByText('Added')).toBeVisible();
-  await page.getByRole('button', { name: 'Done' }).click();
-}
+import { importFixture, SENTENCES, sentenceStart } from './fixtures';
 
 /** The seek bar has 1 s steps, so its value is the time rounded to a second. */
 const seekValue = async (page: Page) =>

@@ -1,23 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   closeEpisode,
   cycleVisibility,
+  savePosition,
   engine,
   openEpisode,
   reimportAudio,
   replay,
   setOffset,
+  toggleSearch,
   toggleView,
   usePlayer,
 } from '../../stores/playerStore';
+import { getEpisode } from '../../lib/db/episodes';
+import { replaceEpisodeSubtitles, SUBTITLE_RESET_WARNING } from '../../stores/libraryStore';
 import { updateSettings, useSettings } from '../../stores/settingsStore';
 import { Icon } from '../common/Icon';
+import { ShortcutsTable } from '../common/ShortcutsTable';
 import ui from '../common/ui.module.css';
 import { CaptionView } from './CaptionView';
 import { Controls } from './Controls';
 import { SentenceSheet } from './SentenceSheet';
 import { TranscriptView } from './TranscriptView';
+import { useShortcuts } from './useShortcuts';
 import styles from './player.module.css';
 
 export function PlayerScreen() {
@@ -52,6 +58,15 @@ export function PlayerScreen() {
         <h1 className={styles.title}>{title}</h1>
         {status === 'ready' && (
           <>
+            {view === 'transcript' && (
+              <button
+                className={ui.iconButton}
+                aria-label="Search the transcript"
+                onClick={toggleSearch}
+              >
+                <Icon name="search" />
+              </button>
+            )}
             <button
               className={ui.iconButton}
               aria-label={view === 'caption' ? 'Show transcript' : 'Show caption view'}
@@ -84,6 +99,8 @@ function Ready() {
   const ended = usePlayer((s) => s.ended);
   const sheet = usePlayer((s) => s.sheet);
   const navigate = useNavigate();
+  const [helpOpen, setHelpOpen] = useState(false);
+  useShortcuts(useCallback(() => setHelpOpen(true), []));
   const notice = error ?? warnings.join(' ');
 
   return (
@@ -117,7 +134,34 @@ function Ready() {
       </main>
       <Controls />
       {sheet !== null && <SentenceSheet key={sheet} index={sheet} />}
+      {helpOpen && <ShortcutsDialog onClose={() => setHelpOpen(false)} />}
     </>
+  );
+}
+
+/** "?" shows the keyboard shortcuts. */
+function ShortcutsDialog({ onClose }: { onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      className={styles.sheet}
+      aria-labelledby="shortcuts-title"
+      onClose={onClose}
+    >
+      <header className={styles.sheetHeader}>
+        <h2 id="shortcuts-title" className={styles.sheetTitle}>
+          Keyboard shortcuts
+        </h2>
+        <button className={ui.iconButton} aria-label="Close" onClick={onClose}>
+          <Icon name="close" />
+        </button>
+      </header>
+      <ShortcutsTable />
+    </dialog>
   );
 }
 
@@ -163,7 +207,21 @@ function AudioError() {
 // Reads the engine, not the render, so fast repeated clicks all count.
 const shiftOffset = (ms: number) => setOffset(engine.getState().offsetMs + ms);
 
-/** PLY-4: subtitle sync in the overflow menu, saved per episode; LRN-2 toggle. */
+/** UI-2: replace the subtitles of the open episode, then reload it. */
+async function replaceSubtitlesHere(file: File) {
+  const { episodeId } = usePlayer.getState();
+  engine.pause();
+  await savePosition();
+  const episode = episodeId && (await getEpisode(episodeId));
+  if (!episode) return;
+  const { replaced, error } = await replaceEpisodeSubtitles(episode, file, () =>
+    confirm(SUBTITLE_RESET_WARNING),
+  );
+  if (error) usePlayer.setState({ error });
+  if (replaced) await openEpisode(episode.id);
+}
+
+/** PLY-4: subtitle sync in the overflow menu, saved per episode; LRN-2 toggle; UI-2. */
 function SyncMenu() {
   const offsetMs = usePlayer((s) => s.offsetMs);
   const revealAfterCue = useSettings((s) => s.revealAfterCue);
@@ -198,6 +256,19 @@ function SyncMenu() {
             onChange={(e) => updateSettings({ revealAfterCue: e.target.checked })}
           />
           Reveal blurred sentences after listening
+        </label>
+        <label className={ui.chip}>
+          Replace subtitles
+          <input
+            type="file"
+            accept=".srt,.vtt"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              document.getElementById('player-menu')?.hidePopover();
+              if (file) void replaceSubtitlesHere(file);
+            }}
+          />
         </label>
       </div>
     </>

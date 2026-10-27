@@ -1,3 +1,6 @@
 SPEC.md
 pnpm-lock.yaml
 tests/fixtures
+dist
+test-results
+playwright-report

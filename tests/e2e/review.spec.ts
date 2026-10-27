@@ -1,16 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { makeWav, SRT } from './fixtures';
+import { importFixture } from './fixtures';
 
 test('E2E-4: a word saved from the Sentence sheet is in Vocabulary and exports as CSV', async ({
   page,
 }) => {
-  await page.goto('/');
-  await page.getByLabel('Import').setInputFiles([
-    { name: 'episode-01.wav', mimeType: 'audio/wav', buffer: makeWav(20) },
-    { name: 'episode-01.srt', mimeType: 'application/x-subrip', buffer: Buffer.from(SRT) },
-  ]);
-  await page.getByRole('button', { name: 'Done' }).click();
+  await importFixture(page);
   await page.getByRole('link', { name: /episode-01/ }).click();
 
   // Sentence 2 starts at 0:04: "Today we talk about learning English."

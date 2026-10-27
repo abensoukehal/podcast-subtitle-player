@@ -24,6 +24,7 @@
 }
 
 .chip {
+  position: relative;
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--border);
@@ -92,13 +93,21 @@
   opacity: 0.5;
 }
 
-/* A <label> wrapping a file input, styled as a button. */
-.button:focus-within {
+/* A <label> wrapping a file input, styled as a button or chip. */
+label.chip {
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.button:focus-within,
+label.chip:focus-within {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.button input[type='file'] {
+.button input[type='file'],
+.chip input[type='file'] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -136,4 +145,15 @@
 
 .danger {
   color: var(--danger);
+}
+
+.toast {
+  position: fixed;
+  z-index: 10;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  width: min(420px, calc(100vw - 32px));
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+  transform: translateX(-50%);
 }

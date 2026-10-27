@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   revealAfterCue: false,
   autoPause: { kind: 'off' },
   dictionaryUrlTemplate: 'https://dictionary.cambridge.org/dictionary/english/{word}',
+  keepScreenOn: true,
 };
 
 /** Stored settings over the defaults, so fields added later get their default. */
