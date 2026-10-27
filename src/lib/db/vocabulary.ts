@@ -14,3 +14,12 @@ export async function addVocab(
   await tx.done;
   return 'saved';
 }
+
+/** REV-1: newest first. */
+export async function listVocab(): Promise<VocabEntry[]> {
+  return (await (await getDb()).getAllFromIndex('vocabulary', 'createdAt')).reverse();
+}
+
+export async function deleteVocab(id: string): Promise<void> {
+  await (await getDb()).delete('vocabulary', id);
+}

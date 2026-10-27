@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dictionaryUrl,
+  highlightParts,
   normalizeWord,
   selectedText,
   selectWord,
@@ -40,5 +41,26 @@ describe('words', () => {
     expect(dictionaryUrl('https://d.example/{word}?q={word}', 'give up')).toBe(
       'https://d.example/give%20up?q=give%20up',
     );
+  });
+});
+
+describe('highlightParts', () => {
+  it('marks every case-insensitive occurrence', () => {
+    expect(highlightParts('Give up? Never give up.', 'give up')).toEqual([
+      { text: 'Give up', match: true },
+      { text: '? Never ', match: false },
+      { text: 'give up', match: true },
+      { text: '.', match: false },
+    ]);
+  });
+
+  it('treats the word as text, not a pattern', () => {
+    expect(highlightParts('a.b and axb', 'a.b')).toEqual([
+      { text: 'a.b', match: true },
+      { text: ' and axb', match: false },
+    ]);
+    expect(highlightParts('nothing here', 'word')).toEqual([
+      { text: 'nothing here', match: false },
+    ]);
   });
 });

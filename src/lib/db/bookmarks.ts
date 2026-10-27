@@ -13,3 +13,15 @@ export async function addBookmark(fields: Omit<Bookmark, 'id' | 'createdAt'>): P
 export async function deleteBookmark(id: string): Promise<void> {
   await (await getDb()).delete('bookmarks', id);
 }
+
+export async function listAllBookmarks(): Promise<Bookmark[]> {
+  return (await getDb()).getAll('bookmarks');
+}
+
+/** REV-3: an empty note removes it. */
+export async function updateBookmarkNote(id: string, note: string): Promise<void> {
+  const tx = (await getDb()).transaction('bookmarks', 'readwrite');
+  const bookmark = await tx.store.get(id);
+  if (bookmark) await tx.store.put({ ...bookmark, note: note.trim() || undefined });
+  await tx.done;
+}

@@ -41,3 +41,14 @@ export function selectedText(tokens: string[], selection: WordSelection): string
 export function dictionaryUrl(template: string, word: string): string {
   return template.replaceAll('{word}', encodeURIComponent(word));
 }
+
+/** REV-1: the sentence split so each case-insensitive occurrence of word can be highlighted. */
+export function highlightParts(sentence: string, word: string): { text: string; match: boolean }[] {
+  const escaped = word.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!escaped) return [{ text: sentence, match: false }];
+  // With a capturing group, split puts the matches at the odd positions.
+  return sentence
+    .split(new RegExp(`(${escaped})`, 'gi'))
+    .map((text, i) => ({ text, match: i % 2 === 1 }))
+    .filter((part) => part.text);
+}

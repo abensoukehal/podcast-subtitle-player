@@ -163,8 +163,14 @@ async function startPlayback(episode: Episode, audio: Blob, token: number): Prom
   return true;
 }
 
-/** Opens a stored episode. Never autoplays (PLY-1). */
-export async function openEpisode(id: string): Promise<void> {
+/**
+ * Opens a stored episode. Never autoplays (PLY-1), except when asked to start at a sentence
+ * from Bookmarks, which is itself a tap (REV-3).
+ */
+export async function openEpisode(
+  id: string,
+  start?: { cue: number; play: boolean },
+): Promise<void> {
   const token = ++openToken;
   engine.pause();
   usePlayer.setState({ ...emptyEpisode(), status: 'loading', episodeId: id });
@@ -189,6 +195,7 @@ export async function openEpisode(id: string): Promise<void> {
     return;
   }
   if (await startPlayback(episode, audio, token)) {
+    if (start) engine.seekToCue(start.cue, { play: start.play });
     void saveEpisode(id, { lastPlayedAt: Date.now() });
   }
 }

@@ -26,3 +26,16 @@ export async function describeWriteError(e: unknown): Promise<string> {
   const used = usage === undefined ? '' : ` (${formatBytes(usage)} used)`;
   return `Storage is full${used}. Delete some episodes to free space.`;
 }
+
+/** STO-1, SET-2: usage, quota and whether the data is protected from eviction. */
+export async function storageInfo(): Promise<{
+  usage?: number;
+  quota?: number;
+  persisted: boolean;
+}> {
+  const [estimate, persisted] = await Promise.all([
+    navigator.storage?.estimate?.().catch(() => undefined),
+    navigator.storage?.persisted?.().catch(() => false),
+  ]);
+  return { usage: estimate?.usage, quota: estimate?.quota, persisted: persisted ?? false };
+}

@@ -14,10 +14,12 @@
   --highlight-bg: #e6eefc;
   --highlight-text: #0b1f4d;
   --notice-bg: #fff4d6;
+  --danger: #c5221f;
 }
 
+/* Dark follows the system unless Settings picks a theme (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #121417;
     --surface: #1b1e23;
     --text: #e8eaed;
@@ -29,7 +31,28 @@
     --highlight-bg: #22324d;
     --highlight-text: #e8f0fe;
     --notice-bg: #3a3220;
+    --danger: #f28b82;
   }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #121417;
+  --surface: #1b1e23;
+  --text: #e8eaed;
+  --muted: #9aa0a6;
+  --border: #2c3036;
+  --hover: rgb(255 255 255 / 0.06);
+  --accent: #8ab4f8;
+  --on-accent: #0b1f4d;
+  --highlight-bg: #22324d;
+  --highlight-text: #e8f0fe;
+  --notice-bg: #3a3220;
+  --danger: #f28b82;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 *,

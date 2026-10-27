@@ -20,6 +20,20 @@
   margin-bottom: 16px;
 }
 
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.nav a {
+  display: inline-grid;
+  place-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
 .heading {
   margin: 0;
   font-size: 1.5rem;
@@ -185,17 +199,11 @@
 }
 
 .error {
-  color: #c5221f;
+  color: var(--danger);
 }
 
 .warning {
   color: var(--muted);
-}
-
-@media (prefers-color-scheme: dark) {
-  .error {
-    color: #f28b82;
-  }
 }
 
 .dialogActions {

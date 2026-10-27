@@ -6,6 +6,7 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
+  color: inherit;
 }
 
 .iconButton:hover {
@@ -134,11 +135,5 @@
 }
 
 .danger {
-  color: #c5221f;
-}
-
-@media (prefers-color-scheme: dark) {
-  .danger {
-    color: #f28b82;
-  }
+  color: var(--danger);
 }

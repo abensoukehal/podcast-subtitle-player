@@ -67,3 +67,17 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **SEN-4 link.** Look up is a real link (`target="_blank" rel="noopener noreferrer"`), not `window.open`.
 - **TRN-5 completed.** Rows now have the bookmark marker and the actions button.
 - **TRN-4 setting.** `Settings.autoScroll` off disables auto-scroll and the "Back to current" button.
+
+## M5
+
+- **Navigation.** The library header has plain links to Vocabulary, Bookmarks and Settings; each of those screens has a back button. The real navigation bar (UI-1) is M6.
+- **Opening at a sentence.** `#/episode/:id?cue=N` opens the episode at sentence N (REV-1), and `&play=1` also plays it (REV-3). The parameters are read once and removed from the address, so a reload resumes from the saved position instead.
+- **REV-1.** The search matches the word, the sentence and the episode title. Deleting an entry asks no confirmation. Entries whose episode was deleted stay, marked "(deleted)", and do not open anything.
+- **REV-2 dates.** The `date` column is the UTC date (YYYY-MM-DD); `time` is the sentence start (m:ss). Rows end with CRLF.
+- **REV-3.** Bookmarks are grouped in library order, then sentence order. A note is saved when the field loses focus; an empty note removes it. Bookmarks can also be removed here.
+- **STO-6 merge.** Episodes compare `updatedAt`, vocabulary and bookmarks compare `createdAt`; a tie keeps the local record. So an edited bookmark note does not travel through a backup if the bookmark already exists on the other device. Settings in a backup replace the current settings. Restored episodes have no audio and show the PLY-6 "Re-import audio" screen.
+- **STO-6 validation.** A backup is checked at import (app name, version, and the fields the app relies on in every record); anything else is rejected as a whole with "This is not a valid backup file."
+- **SET-1 dictionary.** The template must start with http(s):// and contain `{word}`; an invalid value is shown with an error and not saved.
+- **SET-2 delete all.** Typing DELETE enables the button; it empties every store, including settings.
+- **SET-3.** The shortcut list is shown now and lives in `src/components/common/shortcuts.ts`; the keys themselves work from M6.
+- **UI-6 theme early.** The theme setting needs a light/dark override, so the dark colors now apply under `prefers-color-scheme` unless `data-theme` on `<html>` says otherwise. Two module-level dark rules became a `--danger` token.

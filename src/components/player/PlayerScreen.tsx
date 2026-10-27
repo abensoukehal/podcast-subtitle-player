@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   closeEpisode,
   cycleVisibility,
@@ -26,11 +26,18 @@ export function PlayerScreen() {
   const title = usePlayer((s) => s.title);
   const view = usePlayer((s) => s.view);
   const status = usePlayer((s) => s.status);
+  // REV-1, REV-3: ?cue=N opens at that sentence, &play=1 also plays it. Read once.
+  const [params, setParams] = useSearchParams();
+  const [start] = useState(() => {
+    const cue = params.get('cue');
+    return cue === null ? undefined : { cue: Number(cue), play: params.has('play') };
+  });
 
   useEffect(() => {
-    void openEpisode(id);
+    void openEpisode(id, start);
+    if (start) setParams({}, { replace: true });
     return closeEpisode;
-  }, [id]);
+  }, [id, start, setParams]);
 
   return (
     <div className={styles.screen}>

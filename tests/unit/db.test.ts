@@ -11,10 +11,18 @@ import {
   sortEpisodes,
   updateEpisode,
 } from '../../src/lib/db/episodes';
-import { addBookmark, deleteBookmark, listBookmarks } from '../../src/lib/db/bookmarks';
+import { deleteAllData, exportBackup, importBackup } from '../../src/lib/db/backup';
+import {
+  addBookmark,
+  deleteBookmark,
+  listAllBookmarks,
+  listBookmarks,
+  updateBookmarkNote,
+} from '../../src/lib/db/bookmarks';
 import { getDb, type Episode } from '../../src/lib/db/schema';
 import { DEFAULT_SETTINGS, getSettings, saveSettings } from '../../src/lib/db/settings';
-import { addVocab } from '../../src/lib/db/vocabulary';
+import { addVocab, deleteVocab, listVocab } from '../../src/lib/db/vocabulary';
+import { parseBackup } from '../../src/lib/export';
 import type { Cue } from '../../src/lib/subtitles/types';
 
 const cues = (n: number): Cue[] =>
@@ -173,5 +181,64 @@ describe('vocabulary, bookmarks, settings', () => {
     expect(await getSettings()).toEqual(DEFAULT_SETTINGS);
     await saveSettings({ ...DEFAULT_SETTINGS, skipSec: 10 });
     expect((await getSettings()).skipSec).toBe(10);
+  });
+});
+
+describe('review data and backup (TST-6)', () => {
+  it('lists vocabulary newest first and deletes entries', async () => {
+    const base = { sentence: 's', episodeId: 'e', episodeTitle: 'E', cueIndex: 0, timeSec: 0 };
+    await addVocab({ ...base, word: 'first' });
+    await new Promise((r) => setTimeout(r, 2));
+    await addVocab({ ...base, word: 'second' });
+    const list = await listVocab();
+    expect(list.map((v) => v.word).slice(0, 2)).toEqual(['second', 'first']);
+    await deleteVocab(list[0]!.id);
+    expect((await listVocab()).map((v) => v.word)).not.toContain('second');
+  });
+
+  it('edits and clears a bookmark note', async () => {
+    const b = await addBookmark({ episodeId: 'note', cueIndex: 0, text: 't', startSec: 0 });
+    await updateBookmarkNote(b.id, '  phrasal verb ');
+    expect((await listAllBookmarks()).find((x) => x.id === b.id)?.note).toBe('phrasal verb');
+    await updateBookmarkNote(b.id, '');
+    expect((await listAllBookmarks()).find((x) => x.id === b.id)?.note).toBeUndefined();
+  });
+
+  it('round-trips a backup: delete everything, import, same data back', async () => {
+    await addEpisode(episode('backup', { lastPositionSec: 4 }), new Blob(['audio']));
+    await addBookmarkAndWord('backup');
+    const saved = await exportBackup();
+    const text = JSON.stringify(saved);
+
+    await deleteAllData();
+    expect(await listEpisodes()).toEqual([]);
+
+    const counts = await importBackup(parseBackup(text));
+    expect(counts.episodes).toBe(saved.episodes.length);
+    expect(await getEpisode('backup')).toMatchObject({ lastPositionSec: 4 });
+    expect(await getAudio('backup')).toBeUndefined(); // audio is never in a backup
+    const again = await exportBackup();
+    expect({ ...again, exportedAt: 0 }).toEqual({ ...saved, exportedAt: 0 });
+
+    // A second import changes nothing: nothing is newer.
+    expect(await importBackup(parseBackup(text))).toEqual({
+      episodes: 0,
+      vocabulary: 0,
+      bookmarks: 0,
+    });
+  });
+
+  it('a newer record in the backup wins, an older one does not', async () => {
+    await addEpisode(episode('merge', { title: 'local', updatedAt: 10 }), new Blob());
+    const backup = await exportBackup();
+    const newer = {
+      ...backup,
+      episodes: [{ ...episode('merge'), title: 'remote', updatedAt: 9e15 }],
+    };
+    await importBackup(newer);
+    expect((await getEpisode('merge'))?.title).toBe('remote');
+    const older = { ...backup, episodes: [{ ...episode('merge'), title: 'old', updatedAt: 1 }] };
+    await importBackup(older);
+    expect((await getEpisode('merge'))?.title).toBe('remote');
   });
 });

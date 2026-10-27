@@ -1,4 +1,5 @@
 import { useEffect, useState, type DragEvent } from 'react';
+import { Link } from 'react-router';
 import { beginImport, refreshLibrary, useLibrary } from '../../stores/libraryStore';
 import ui from '../common/ui.module.css';
 import { EpisodeCard } from './EpisodeCard';
@@ -53,6 +54,18 @@ export function LibraryScreen() {
           />
         </label>
       </header>
+      {/* ponytail: plain links until the M6 navigation bar (UI-1) */}
+      <nav className={styles.nav} aria-label="Sections">
+        <Link className={ui.chip} to="/vocabulary">
+          Vocabulary
+        </Link>
+        <Link className={ui.chip} to="/bookmarks">
+          Bookmarks
+        </Link>
+        <Link className={ui.chip} to="/settings">
+          Settings
+        </Link>
+      </nav>
       {message && (
         <div className={ui.notice} role="alert">
           <span>{message}</span>
