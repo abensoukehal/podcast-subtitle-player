@@ -1,0 +1,29 @@
+.open {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 48px 16px;
+  line-height: 1.6;
+}
+
+.pick {
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 22px;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+.pick:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pick input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}

@@ -16,3 +16,18 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **LIB-2 language code.** The trailing code is stripped from subtitle names only (`.en`, `.eng`, `.en-US`, `.pt_BR`), and an exact base name match is tried first, so `news.bbc.mp3` pairs with `news.bbc.srt`, not `news.srt`.
 - **LIB-2 file kinds.** Any file that is not `.srt` or `.vtt` counts as audio; LIB-4 rejects files the browser cannot play.
 - **Unit test location.** Unit tests live in `tests/unit/` so `src/` holds no Node-only code.
+
+## M2
+
+- **Dependencies.** Added Zustand only. React Router waits for M3, when there is more than one screen.
+- **CUE-6 event.** The engine emits a `cueend` event (not in the spec's event list) when a cue ends. M4 builds loop, auto-pause and reveal-after-listening (LRN-2) on it. `setLoop` and `setAutoPause` are left for M4.
+- **CUE-6 arming after a plain seek.** `seek(t)` arms only cues that have not ended at `t`, so seeking into a gap never fires the cue just before it.
+- **CUE-2 during pre-roll.** After `seekToCue(i)`, cue `i` stays current until playback reaches its start, so the previous sentence does not flash for 150 ms.
+- **PLY-1 / PLY-4 without storage.** M2 has no storage: an episode opens at 0 and the sync offset lives in memory. Both are saved per episode in M3.
+- **PLY-3 default speed.** The last chosen speed is kept in memory for the next file. It becomes `Settings.defaultRate` in M5.
+- **PLY-2 skip amount.** Fixed at 5 s until `Settings.skipSec` exists (M5).
+- **TRN-1 remembered view.** Stored in `localStorage`; the Settings record has no field for it.
+- **TRN-4 long jumps.** Auto-scroll is smooth for nearby sentences but instant when the target is more than two screens away (seek bar jumps), because smooth-scrolling hundreds of rows takes seconds. Manual scroll is detected from wheel, touch and scroll keys.
+- **TRN-5 partial.** Rows show time and speaker. The bookmark marker (M5) and the actions button for the Sentence sheet (M4) come with those features.
+- **Menus.** Speed and sync menus use the native `popover` attribute, no library.
+- **File picker.** M2 opens one audio and one subtitle file picked together, paired by name (or the only two files). The library replaces it in M3.
