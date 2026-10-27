@@ -3,6 +3,7 @@ import { formatTime } from '../../lib/time';
 import { MAX_RATE, MIN_RATE } from '../../player/PlayerEngine';
 import { engine, usePlayer } from '../../stores/playerStore';
 import { Icon } from '../common/Icon';
+import ui from '../common/ui.module.css';
 import styles from './player.module.css';
 
 const SKIP_SEC = 5; // ponytail: fixed until Settings.skipSec exists (M5)
@@ -19,14 +20,14 @@ export function Controls() {
       <SeekBar />
       <div className={styles.mainRow}>
         <button
-          className={styles.iconButton}
+          className={ui.iconButton}
           aria-label="Previous sentence"
           onClick={() => engine.prevCue()}
         >
           <Icon name="prev" />
         </button>
         <button
-          className={styles.iconButton}
+          className={ui.iconButton}
           aria-label={`Back ${SKIP_SEC} seconds`}
           onClick={() => skip(-SKIP_SEC)}
         >
@@ -40,14 +41,14 @@ export function Controls() {
           <Icon name={playing ? 'pause' : 'play'} />
         </button>
         <button
-          className={styles.iconButton}
+          className={ui.iconButton}
           aria-label={`Forward ${SKIP_SEC} seconds`}
           onClick={() => skip(SKIP_SEC)}
         >
           <Icon name="forward" />
         </button>
         <button
-          className={styles.iconButton}
+          className={ui.iconButton}
           aria-label="Next sentence"
           onClick={() => engine.nextCue()}
         >
@@ -56,7 +57,7 @@ export function Controls() {
       </div>
       <div className={styles.chipRow}>
         <SpeedMenu />
-        <button className={styles.chip} onClick={() => engine.replayCue()}>
+        <button className={ui.chip} onClick={() => engine.replayCue()}>
           Replay sentence
         </button>
       </div>
@@ -107,14 +108,14 @@ function SpeedMenu() {
   return (
     <>
       <button
-        className={styles.chip}
+        className={ui.chip}
         popoverTarget="speed-menu"
         aria-label={`Speed ${formatRate(rate)}`}
       >
         {formatRate(rate)}
       </button>
-      <div id="speed-menu" popover="auto" className={styles.popover}>
-        <h2 className={styles.popoverTitle}>Speed {formatRate(rate)}</h2>
+      <div id="speed-menu" popover="auto" className={ui.popover}>
+        <h2 className={ui.popoverTitle}>Speed {formatRate(rate)}</h2>
         <input
           type="range"
           className={styles.range}
@@ -126,11 +127,11 @@ function SpeedMenu() {
           aria-valuetext={formatRate(rate)}
           onChange={(e) => engine.setRate(Number(e.target.value))}
         />
-        <div className={styles.popoverRow}>
+        <div className={ui.popoverRow}>
           {SPEED_PRESETS.map((p) => (
             <button
               key={p}
-              className={styles.chip}
+              className={ui.chip}
               aria-pressed={rate === p}
               onClick={() => engine.setRate(p)}
             >

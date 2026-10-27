@@ -1,0 +1,205 @@
+.library {
+  min-height: 100dvh;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.dragging {
+  outline: 3px dashed var(--accent);
+  outline-offset: -8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.empty {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.cardLink {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.cardTitle {
+  margin: 0 0 2px;
+  overflow: hidden;
+  font-size: 1.05rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.badge {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--highlight-bg);
+  color: var(--highlight-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.progress {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--border);
+  accent-color: var(--accent);
+  appearance: none;
+}
+
+.progress::-webkit-progress-bar {
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.progress::-webkit-progress-value {
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.progress::-moz-progress-bar {
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* Import dialog */
+
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.dialogTitle {
+  margin: 0 0 12px;
+  font-size: 1.2rem;
+}
+
+.importList {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.importItem {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.importHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fileName {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.waiting,
+.importing {
+  color: var(--muted);
+}
+
+.done {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.error,
+.warning {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.error {
+  color: #c5221f;
+}
+
+.warning {
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  .error {
+    color: #f28b82;
+  }
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

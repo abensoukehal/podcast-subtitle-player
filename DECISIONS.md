@@ -31,3 +31,21 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **TRN-5 partial.** Rows show time and speaker. The bookmark marker (M5) and the actions button for the Sentence sheet (M4) come with those features.
 - **Menus.** Speed and sync menus use the native `popover` attribute, no library.
 - **File picker.** M2 opens one audio and one subtitle file picked together, paired by name (or the only two files). The library replaces it in M3.
+
+## M3
+
+- **Dependencies.** Added idb, React Router (hash router) and fake-indexeddb (dev, named in TST-6).
+- **Schema.** All five object stores are created in version 1 now, so M5 needs no migration. `AutoPauseMode` lives in `src/lib/db/schema.ts` with the other data types.
+- **Audio as Blobs, with a fallback.** WebKit refuses to store Blobs in IndexedDB in some sessions (private browsing, Playwright's WebKit), and a refused write stalls later transactions on the same stores. Support is probed once in a throwaway database; where Blobs are refused, the audio is stored as `{ data: ArrayBuffer, type }`. `getAudio` always returns a Blob.
+- **STO-1 display.** `navigator.storage.persist()` is called after each successful import (it is a no-op once granted). Showing the result and usage is part of the Settings screen (M5).
+- **STO-2 and unload.** The position is saved every 5 s while playing, on pause, on hidden and on pagehide. A write started during unload may not finish, so the worst case after closing a playing tab is the last 5-second save.
+- **LIB-3 pairing step.** The dialog lists every audio file: auto-paired ones show their subtitle file, unpaired ones get a dropdown of the unused subtitle files. Any item can be removed. If nothing needs pairing, import starts at once.
+- **LIB-1 dropped files.** Files that are neither subtitles nor audio/video by MIME type are skipped with a note.
+- **LIB-4 duration.** If the browser reports an infinite duration (some streams), 0 is stored rather than rejecting the file.
+- **LIB-6 rename and delete.** Use the native `prompt()` and `confirm()` dialogs.
+- **LIB-6 replace subtitles.** When the sentence count changes, both the position and the bookmarks are reset, after a confirmation.
+- **PLY-6 location.** "Re-import audio" is on the player screen, where the error shows.
+- **E2E-3.** The test waits for the pause-save to reach IndexedDB before reloading (see STO-2 and unload).
+- **E2E fixtures.** The 20-second WAV and its SRT are generated in memory in `tests/e2e/fixtures.ts` and passed to the file input as buffers; no file is written.
+- **TST-6 backup round trip.** Backup (STO-6) is in M5, so its round-trip test comes with it.
+- **Navigation bar.** UI-1 (tab bar / top bar) is in M6; M3 has only the library and player routes.

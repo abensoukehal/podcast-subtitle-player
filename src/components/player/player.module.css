@@ -25,30 +25,6 @@
   text-overflow: ellipsis;
 }
 
-.iconButton {
-  display: inline-grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-}
-
-.iconButton:hover {
-  background: var(--hover);
-}
-
-.notice {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 4px 16px;
-  background: var(--notice-bg);
-  font-size: 0.9rem;
-}
-
 .main {
   position: relative;
   flex: 1;
@@ -248,54 +224,14 @@
   gap: 8px;
 }
 
-.chip {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  background: var(--surface);
-  white-space: nowrap;
+.message {
+  flex: 1;
+  padding: 24px 16px;
+  text-align: center;
+  line-height: 1.6;
 }
 
-.chip[aria-pressed='true'] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.chip:disabled {
-  opacity: 0.5;
-}
-
-.popover {
-  min-width: min(300px, calc(100vw - 32px));
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
-}
-
-.popover::backdrop {
-  background: rgb(0 0 0 / 0.2);
-}
-
-.popoverTitle {
-  margin: 0 0 12px;
-  font-size: 1rem;
-}
-
-.popoverRow {
+.actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin: 12px 0;
-}
-
-.hint {
-  margin: 0 0 12px;
-  color: var(--muted);
-  font-size: 0.85rem;
 }
