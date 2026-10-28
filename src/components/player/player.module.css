@@ -154,15 +154,11 @@
 /* Caption */
 
 .caption {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 24px;
-  max-width: 760px;
+  --radius-drum: calc(var(--font-size) * 20);
+  position: relative;
   height: 100%;
-  margin: 0 auto;
-  padding: 16px;
-  overflow-y: auto;
+  overflow: hidden;
+  perspective: 900px;
   text-align: center;
   /* Earlier and later sentences fade out; the middle, where the current one sits, stays clear. */
   -webkit-mask-image: linear-gradient(
@@ -175,24 +171,54 @@
   mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 70%, transparent 100%);
 }
 
+/* The sentences sit on a horizontal cylinder; CaptionView turns it one sentence per step. */
+.drum {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(calc(var(--radius-drum) * -1)) rotateX(var(--turn));
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease-in-out;
+}
+
+.drumFace {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(728px, calc(100% - 32px));
+  transform: translate(-50%, -50%) rotateX(var(--angle)) translateZ(var(--radius-drum));
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Every sentence is set at the current size; the others are scaled down, so they can grow in. */
 .captionSide,
 .captionCurrent {
+  width: 100%;
   border: 0;
   border-radius: var(--radius);
   background: transparent;
+  font-size: calc(var(--font-size) * 1.5);
   line-height: 1.6;
+  transition:
+    transform 0.5s ease-in-out,
+    color 0.5s ease-in-out;
 }
 
 .captionSide {
-  min-height: 3em;
+  transform: scale(0.667);
   color: var(--muted);
-  font-size: var(--font-size);
 }
 
 .captionCurrent {
-  min-height: 4.5em;
-  font-size: calc(var(--font-size) * 1.5);
   font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drum,
+  .captionSide,
+  .captionCurrent {
+    transition: none;
+  }
 }
 
 /* Controls */
