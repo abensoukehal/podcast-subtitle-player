@@ -100,3 +100,7 @@ Choices made where the spec was unclear or in conflict. Newest last.
 - **Shortcuts.** Ignored with Ctrl/Cmd/Alt, in any input, select or text area (so the seek bar keeps its arrow keys), and while a dialog is open. Space is prevented by default so it never also presses a focused button. "?" opens a dialog with the same table as Settings.
 - **TRN-7.** The search button is in the player header in Transcript view. Enter jumps to the next match and Shift+Enter to the previous one; jumping pauses auto-scroll, and "Back to current" returns. Esc closes the search.
 - **Not checked here.** AC-1 to AC-6 need a real phone and a real NotebookLM episode, and the Lighthouse score was not measured. The built-in browser pane of the development app refuses service workers, so offline use was verified with Playwright only.
+
+## Design updates
+
+- **TRN-1 caption view fade** (from the Screens canvas, 2026-10-28). Caption view shows two sentences before and two after the current one instead of one each, and the column fades out toward its top and bottom edges (a CSS mask, transparent at the edges, opaque from 30% to 70%). The design system's CaptionView matches.

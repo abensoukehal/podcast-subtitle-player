@@ -4,13 +4,18 @@ import { useLongPress } from '../common/useLongPress';
 import { SentenceText } from './SentenceText';
 import styles from './player.module.css';
 
-/** TRN-1: the current sentence large, the previous and next ones smaller and dimmed. */
+const AROUND = [-2, -1, 0, 1, 2]; // sentences shown before and after the current one
+
+/**
+ * TRN-1: the current sentence large, the two before and after it smaller and dimmed,
+ * fading out toward the edges (the mask is in player.module.css `.caption`).
+ */
 export function CaptionView() {
   const index = usePlayer((s) => s.index);
   return (
     <div className={styles.caption}>
-      {[index - 1, index, index + 1].map((i, slot) => (
-        <CaptionLine key={slot} index={i} current={slot === 1} />
+      {AROUND.map((offset) => (
+        <CaptionLine key={offset} index={index + offset} current={offset === 0} />
       ))}
     </div>
   );
