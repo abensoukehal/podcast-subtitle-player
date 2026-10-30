@@ -154,11 +154,12 @@
 /* Caption */
 
 .caption {
-  --radius-drum: calc(var(--font-size) * 20);
+  /* The drum grows with the view height on tall screens, so it fills them. */
+  --radius-drum: max(calc(var(--font-size) * 20), 60cqh);
+  container-type: size;
   position: relative;
   height: 100%;
   overflow: hidden;
-  perspective: 900px;
   text-align: center;
   /* Earlier and later sentences fade out; the middle, where the current one sits, stays clear. */
   -webkit-mask-image: linear-gradient(
@@ -175,7 +176,8 @@
 .drum {
   position: absolute;
   inset: 0;
-  transform: translateZ(calc(var(--radius-drum) * -1)) rotateX(var(--turn));
+  transform: perspective(calc(var(--radius-drum) * 2.5)) translateZ(calc(var(--radius-drum) * -1))
+    rotateX(var(--turn));
   transform-style: preserve-3d;
   transition: transform 0.5s ease-in-out;
 }
